@@ -1,0 +1,28 @@
+XMLTV grabber for vodafone.pt television service
+
+All urls/api taken from https://tvnetvoz.vodafone.pt/sempre-consigo/guia-tv
+the service is very fast and reliable, much better than the very weak
+NOS page and more stable than MEO webservice
+
+Sadly vodafone didn't help in any way, even after several attempts to have
+then cooperate with me. The tv info is public, so this is safe for personal
+usage.
+
+For now, shell script version, i will later port this to perl and submit
+to the xmltv project. The script only supports downloading one day, i
+will have to expand it to support ranges and offsets.
+
+I have been using this in the last few weeks and it is working fine here,
+if you find any problem, contact me or open a ticket
+
+To use, just run:
+
+  tv_grab_pt_vdf.sh
+
+to get the today xmltv... or run
+
+  tv_grab_pt_vdf.sh 1
+
+to get tomorrow xmltv data
+
+Have fun
