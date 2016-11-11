@@ -61,7 +61,7 @@ cat ${tmpd}/list | sed ' s/[+!&]//g ' | awk -F"	"  '
 # clean bad characters for xml and extract the info from the json to the xmltv
 # yes, i like awk! :)
 cat ${tmpd}/json | \
- 	sed '  s/CAC & PESCA/CACPESCA/g ; s/&/&amp;/g ; s,\\/,/,g; s/\\u\([0-9]\{4\}\)/\&#x\1;/g  ; s/&#0*\([1-9]\+;/&#x\1;/g; s//«/g ; s//»/g ; s/</&lt;/g ; s/>/&gt;/g' | \
+ 	sed '  s/CAC & PESCA/CACPESCA/g ; s/&/&amp;/g ; s,\\/,/,g; s/\\u\([0-9]\{4\}\)/\&#x\1;/g  ; s/&#0*\([1-9]\+\);/&#x\1;/g; s//«/g ; s//»/g ; s/</&lt;/g ; s/>/&gt;/g' | \
 	awk -v sdate=${sdate} -v edate=${edate} '
 
 	BEGIN			{ RS=",\"|\n|{|}" ; FS="\"" }
