@@ -49,7 +49,7 @@ echo '<?xml version="1.0" encoding="UTF-8"?>
 ' > ${tmpd}/xmltv
 
 # create the channel id list. Remove bad characters for channel id
-cat ${tmpd}/list | sed ' s/[+!&]//g ' | awk -F"	"  '
+cat ${tmpd}/list | sed ' s/[!&]//g ; s/+/plus/g ' | awk -F"	"  '
 	{ channel= gensub(/ /,"","g",tolower($2))
 	  id = $1
 	  print "  <channel id=\"" channel ".tv.vodafone.pt\">\n\
@@ -65,7 +65,7 @@ cat ${tmpd}/json | \
 	awk -v sdate=${sdate} -v edate=${edate} '
 
 	BEGIN			{ RS=",\"|\n|{|}" ; FS="\"" }
-	$2 ~ /callLetter/	{ channel=gensub(/[ +!&]/, "", "g", tolower($4)) }
+	$2 ~ /callLetter/	{ channel=gensub(/\+/,"plus","g",gensub(/[ !&]/, "", "g", tolower($4))) }
 	$2 ~ /startTime/	{ start=sprintf("%04d",gensub(/:/,"","g",$4))  }
 	$1 ~ /endTime/		{ end=sprintf("%04d",gensub(/:/,"","g",$3)) }
 	$1 ~ /programTitle/	{ title=$3 ;
