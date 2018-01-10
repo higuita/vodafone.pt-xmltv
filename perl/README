@@ -1,0 +1,10 @@
+The perl version, to be included in xmltv was build by @nsenica, based in 
+my shell script and in the pt_meo grabber.
+
+I have been using it and it is working perfectly.
+
+His xmltv fork in in the below repo and we will request to merge the
+grabber in the main xmltv
+
+  https://github.com/nsenica/xmltv
+
