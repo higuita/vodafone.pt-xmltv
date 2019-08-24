@@ -58,11 +58,14 @@ cat ${tmpd}/list | sed ' s/[!&]//g ; s/+/plus/g ' | awk -F"	"  '
   </channel>" }
 	' >> ${tmpd}/xmltv
 
+# get the correct TZ, mostly because of the daylight saving
+tz="$( date +%z )"
+
 # clean bad characters for xml and extract the info from the json to the xmltv
 # yes, i like awk! :)
 cat ${tmpd}/json | \
  	sed '  s/CAC & PESCA/CACPESCA/g ; s/&/&amp;/g ; s,\\/,/,g; s/\\u\([0-9]\{4\}\)/\&#x\1;/g  ; s/&#0*\([1-9]\+\);/&#x\1;/g; s//«/g ; s//»/g ; s/</&lt;/g ; s/>/&gt;/g' | \
-	awk -v sdate=${sdate} -v edate=${edate} '
+	awk -v sdate="${sdate}" -v edate="${edate}" -v tz="$tz" '
 
 	BEGIN			{ RS=",\"|\n|{|}" ; FS="\"" }
 	$2 ~ /callLetter/	{ channel=gensub(/\+/,"plus","g",gensub(/[ !&]/, "", "g", tolower($4))) }
@@ -83,7 +86,7 @@ cat ${tmpd}/json | \
 					else { date_end=edate } }
 				  else {
 					date_end=date}
-				  print "  <programme start=\"" date start "00 +0000\" stop=\"" date_end end "00 +0000\" channel=\"" channel ".tv.vodafone.pt\">\n\
+				  print "  <programme start=\"" date start "00 "tz"\" stop=\"" date_end end "00 "tz"\" channel=\"" channel ".tv.vodafone.pt\">\n\
     <title lang=\"pt\">" title "</title>\n\
     <desc lang=\"pt\">" desc "</desc>";
 				  if ( length(t) > 0 ) {
@@ -98,4 +101,4 @@ echo "</tv>" >> ${tmpd}/xmltv
 cat ${tmpd}/xmltv
 
 # Cleanup, comment this one to help debug problems
-rm -r ${tmpd}
+#rm -r ${tmpd}
