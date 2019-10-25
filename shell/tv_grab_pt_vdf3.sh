@@ -21,7 +21,7 @@ cat<<EOF
 <tv source-info-url="https://www.vodafone.pt/pacotes/televisao/em-todos-ecras.html#computador" source-info-name="Vodafone TV app EPG Service" source-data-url="https://web.ott-red.vodafone.pt/ott3_webapp/" generator-info-name="XMLTV/0" generator-info-url="http://www.xmltv.org/">
 EOF
 
-jq '.data[]' channels.json   | \
+jq '.data[]' /tmp/vodafone-xml/channels.json | \
   sed 's/&/&amp;/g' | \
   awk -F'"' '
 	$2 == "id"	{
