@@ -1,5 +1,6 @@
 #!/bin/bash -e
 # v1.0 higuita@gmx.net 2019/08/24
+# v1.1 higuita@gmx.net 2019/10/24
 # License GPL V3
 
 # as the Vodafone tvguide site used in the previous script was disabled,
@@ -33,7 +34,7 @@ get_epg(){
 <currentTime>'$now'</currentTime>
 <epgStartTime>'$lasthour'</epgStartTime>
 <epgEndTime>'$nextday'</epgEndTime>
-<channelId>'$*'</channelId>
+'$*'
 </getEPGData></body>'
 
 	get_data $post
@@ -58,11 +59,6 @@ get_channels
 break "<channel>" tv
 
 # start xmltv outpug
-cat<<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE tv SYSTEM "xmltv.dtd">
-<tv source-info-url="https://tvnetvoz.vodafone.pt/sempre-consigo/guia-tv" source-info-name="EPG Service for Vodafone" generator-info-name="XMLTV/0" generator-info-url="http://www.xmltv.org/">
-EOF
 
 # Iterate channels
 for i in /tmp/vodafone-xml/*.tv; do
@@ -76,27 +72,43 @@ for i in /tmp/vodafone-xml/*.tv; do
     <display-name lang="pt">'$name'</display-name>
     <display-name lang="pt">'$id'</display-name>
     <icon src="'$img'"/>
-  </channel>'
+  </channel>' >> /tmp/vodafone-xml/channels.xml
 
-	rm /tmp/vodafone-xml/*.epg || true
-	get_epg "$id"
-	break "<epgData>" epg
-
-	# iterate epg programs
-	for a in /tmp/vodafone-xml/*.epg ; do
-		title="$( cat $a | extract programName )"
-		episode=$( echo "$title" | sed -nr 's/.*:((T[0-9]+ )?Ep\..*)/\1/gp')
-		end=$(   cat $a | extract programEndTime )
-		start=$( cat $a | extract programStartTime )
-
-
-		echo '  <programme start="'$( date -d @$start +%Y%m%d%H%M%S)' +0100" stop="'$( date -d @$end +%Y%m%d%H%M%S)' +0100" channel="'$shortid'.tv.vodafone.pt">
-    <title lang="pt">'$title'</title>
-    <desc lang="pt">'$desc'</desc>
-    <category lang="pt">'$category'</category>
-    <episode-num system="onscreen">'$episode'</episode-num>
-  </programme>'
-	done
+	xml_channel="${xml_channel} <channelId>$id</channelId>
+"
 done
+get_epg "${xml_channel}"
+
+awk -v shortid=$shortid '
+	BEGIN                   { RS="<epgData>"; FS="[<>]"}
+	NR == 1                 { next }
+	/channelId/		{ shortid=gensub(/[^a-z0-9]/, "", "g", tolower($3) ) }
+	/programName/           { title=$23 ; season=gensub(/.*[: ]T([0-9]+) ?.*/,"\\1","g",title); ep=gensub(/.*[: ]Ep\.([0-9]+)/,"\\1","g",title) }
+	/programStartTime/	{ start=strftime("%Y%m%d%H%M%S", $15) }
+	/programEndTime/        { end=strftime("%Y%m%d%H%M%S", $19)   }
+	/epgData/               {
+				  print "  <programme start=\""start" +0100\" stop=\""end" +0100\" channel=\""shortid".tv.vodafone.pt\">"
+				  print "    <title lang=\"pt\">"title"</title>"
+				  #if (desc) { print"    <desc lang=\"pt\">"desc"</desc>" }
+				  #if (category) { print "    <category lang=\"pt\">"category"</category>" }
+				  if (season == title ) { season=1 }
+				  if (ep != title) {
+					print "    <episode-num system=\"onscreen\">S"season" E"ep".</episode-num>"
+					print "    <episode-num system=\"xmltv_ns\">"season-1"."ep-1".</episode-num>"
+					}
+				  print "  </programme>"
+				}
+	' /tmp/vodafone-xml/data.xml > /tmp/vodafone-xml/epg.xml
+
+cat<<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE tv SYSTEM "xmltv.dtd">
+<tv source-info-url="https://www.vodafone.pt/pacotes/televisao/em-todos-ecras.html"
+ source-info-name="Vodafone TV app EPG Service"
+ source-data-url="http://vasp.vodafone.pt/ott/companiontv.do"
+ generator-info-name="XMLTV/0" generator-info-url="http://www.xmltv.org/">
+EOF
+cat /tmp/vodafone-xml/channels.xml /tmp/vodafone-xml/epg.xml
 echo "</tv>"
+
 rm -rf /tmp/vodafone-xml
