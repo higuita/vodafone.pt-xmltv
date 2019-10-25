@@ -1,12 +1,14 @@
 #!/bin/bash -e
-# v1.0 higuita@gmx.net 2019/10/25
+# v1.0 higuita@gmx.net 2019/08/24
 # License GPL V3
 # as the Vodafone tvguide site used in the previous script was disabled,
 # lets try to use the app webservice as a quick workaround.
 # second attempt to alternative api as it look faster and easier
+# bugs:
+#  CAC & PESCA epg returns a error due to the & in name but also crash in the app
 
 # how many days to grab
-days=1
+days=2
 
 
 rm -rf /tmp/vodafone-xml || true
@@ -24,6 +26,7 @@ EOF
 jq '.data[]' /tmp/vodafone-xml/channels.json | \
   sed 's/&/&amp;/g' | \
   awk -F'"' '
+	/CAC &amp; PESCA/ { next } # ignore cac & pesca for now
 	$2 == "id"	{
 			  if (NR>4) { print icon; print "  </channel>" }
 			  print "  <channel id=\""gensub(/[^a-z0-9]/,"","g",gensub(/&amp;/,"","g",tolower($4)))".tv.vodafone.pt\">"
@@ -42,17 +45,20 @@ jq '.data[]' /tmp/vodafone-xml/channels.json | \
 
 # get epg data for each channel
 for i in $( jq '.data[].id' /tmp/vodafone-xml/channels.json | sed 's/ /%20/g' ); do
+  for day in {0..$((days-1))}; do
 	shortid=$( echo $i | sed 's/%20//g' | tr [A-Z] [a-z] |  sed -r 's/&amp;//g; s/[^a-z0-9]//g' )
-	curl -s "https://web.ott-red.vodafone.pt/ott3_webapp/v1.5/programs/grids/${i//\"}/$days" > /tmp/vodafone-xml/epgdata.json
+	curl -s "https://web.ott-red.vodafone.pt/ott3_webapp/v1.5/programs/grids/${i//\"}/$day" > /tmp/vodafone-xml/epgdata.json
 	cat /tmp/vodafone-xml/epgdata.json | \
 		sed 's/&/&amp;/g' | \
 		jq '.data[]' | \
 		awk -v shortid="$shortid" '
 		BEGIN			{ FS="\"" }
 #					{ print "++" $0 "++" $4 "++"}
+		/CAC &amp; PESCA/ { next } # ignore cac & pesca for now
+
 		$2 == "guid"		{ title=""; subtitle=""; desc=""; nseason=""; season=""; nepisode=""; episode=""; start=""; end=""}
-		$2 == "title"		{ title="    <title lang=\"pt\">"$4"</title>" }
-		$2 == "fullTitle"	{ subtitle="    <sub-title lang=\"pt\">"$4"</sub-title>" }
+		$2 == "fullTitle"	{ title="    <title lang=\"pt\">"$4"</title>" }
+		$2 == "episodeTitle"	{ subtitle="    <sub-title lang=\"pt\">"$4"</sub-title>" }
 		$2 == "description"	{ desc="    <desc lang=\"pt\">"$4"</desc>" }
 		$2 == "logo"		{ logo="    <icon src=\""$4"\"/>" }
 		$2 == "duration"	{ duration="    <length units=\"seconds\">"gensub(/: ([0-9]*),/,"\\1","g",$3)"</length>" }
@@ -69,8 +75,8 @@ for i in $( jq '.data[].id' /tmp/vodafone-xml/channels.json | sed 's/ /%20/g' );
 		$2 == "episodeLabel"	{
 					  if (nepisode > 0) { onscreen="    <episode-num system=\"onscreen\">"season" "$4"</episode-num>" }
 					}
-		$2 == "startTime"	{ start=strftime("%Y%m%d%H%M%S", $4) }
-		$2 == "endTime"		{ end=strftime("%Y%m%d%H%M%S", $4) }
+		$2 == "startTime"	{ start=gensub(/[:TZ-]/,"","g",$4) }
+		$2 == "endTime"		{ end=gensub(/[:TZ-]/,"","g",$4) }
 		$2 == "isPlayable"	{
 					  print "  <programme start=\""start" +0100\" stop=\""end" +0100\" channel=\""shortid".tv.vodafone.pt\">"
 					  print title
@@ -84,6 +90,7 @@ for i in $( jq '.data[].id' /tmp/vodafone-xml/channels.json | sed 's/ /%20/g' );
 					  print "  </programme>"
 					}
 	'
+  done
 done
 echo "</tv>"
 
