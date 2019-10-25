@@ -78,7 +78,7 @@ for i in $( jq '.data[].id' /tmp/vodafone-xml/channels.json | sed 's/ /%20/g' );
 		$2 == "startTime"	{ start=gensub(/[:TZ-]/,"","g",$4) }
 		$2 == "endTime"		{ end=gensub(/[:TZ-]/,"","g",$4) }
 		$2 == "isPlayable"	{
-					  print "  <programme start=\""start" +0100\" stop=\""end" +0100\" channel=\""shortid".tv.vodafone.pt\">"
+					  print "  <programme start=\""start"\" stop=\""end"\" channel=\""shortid".tv.vodafone.pt\">"
 					  print title
 					  print subtitle
 					  print desc
