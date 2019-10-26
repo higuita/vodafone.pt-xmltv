@@ -47,6 +47,8 @@ jq '.data[]' /tmp/vodafone-xml/channels.json | \
 for i in $( jq '.data[].id' /tmp/vodafone-xml/channels.json | sed 's/ /%20/g' ); do
   for day in {0..$((days-1))}; do
 	shortid=$( echo $i | sed 's/%20//g' | tr [A-Z] [a-z] |  sed -r 's/&amp;//g; s/[^a-z0-9]//g' )
+	echo $shortid 1>&2
+	if [ $shortid = "cacpesca" ] ; then continue ; fi
 	curl -s "https://web.ott-red.vodafone.pt/ott3_webapp/v1.5/programs/grids/${i//\"}/$day" > /tmp/vodafone-xml/epgdata.json
 	cat /tmp/vodafone-xml/epgdata.json | \
 		sed 's/&/&amp;/g' | \
@@ -54,7 +56,6 @@ for i in $( jq '.data[].id' /tmp/vodafone-xml/channels.json | sed 's/ /%20/g' );
 		awk -v shortid="$shortid" '
 		BEGIN			{ FS="\"" }
 #					{ print "++" $0 "++" $4 "++"}
-		/CAC &amp; PESCA/ { next } # ignore cac & pesca for now
 
 		$2 == "guid"		{ title=""; subtitle=""; desc=""; nseason=""; season=""; nepisode=""; episode=""; start=""; end=""}
 		$2 == "fullTitle"	{ title="    <title lang=\"pt\">"$4"</title>" }
