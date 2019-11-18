@@ -77,7 +77,7 @@ for i in $( jq '.data[].id' /tmp/vodafone-xml/channels.json | sed 's/ /%20/g' );
 		$2 == "fullTitle"	{ title="    <title lang=\"pt\">"$4"</title>" }
 		$2 == "episodeTitle"	{ subtitle="    <sub-title lang=\"pt\">"$4"</sub-title>" }
 		$2 == "description"	{ desc="    <desc lang=\"pt\">"$4"</desc>" }
-		$2 == "logo"		{ logo="    <icon src=\""$4"\"/>" }
+		$2 == "image"		{ logo="    <icon src=\""$4"\"/>" }
 		$2 == "duration"	{ duration="    <length units=\"seconds\">"gensub(/: ([0-9]*),/,"\\1","g",$3)"</length>" }
 		$2 == "category"	{ category="    <category lang=\"en\">"$4"</category>" }
 		$2 == "season"		{
