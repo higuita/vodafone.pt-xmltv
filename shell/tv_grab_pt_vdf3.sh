@@ -10,6 +10,20 @@
 # how many days to grab
 days=2
 
+# stdout
+out="/proc/self/fd/1"
+
+while getopts "ho:d:" opt; do
+  case "$opt" in
+      h) echo " -h -> this help"
+	 echo " -o {filename} -> write output to file, default is the terminal stdout"
+         echo " -d {number} -> number of days to grab, default 2"
+         exit 0 ;;
+      o) out="${OPTARG}" ;;
+      d) days="${OPTARG}" ;;
+      *) usage; exit 2 ;;
+  esac
+done
 
 rm -rf /tmp/vodafone-xml || true
 mkdir -p /tmp/vodafone-xml
@@ -17,7 +31,7 @@ mkdir -p /tmp/vodafone-xml
 # get channel list and build xmltv channel list
 curl -s 'https://web.ott-red.vodafone.pt/ott3_webapp/v1/channels' >/tmp/vodafone-xml/channels.json
 
-cat<<EOF
+cat<<EOF > $out
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE tv SYSTEM "xmltv.dtd">
 <tv source-info-url="https://www.vodafone.pt/pacotes/televisao/em-todos-ecras.html#computador" source-info-name="Vodafone TV app EPG Service" source-data-url="https://web.ott-red.vodafone.pt/ott3_webapp/" generator-info-name="XMLTV/0" generator-info-url="http://www.xmltv.org/">
@@ -41,7 +55,7 @@ jq '.data[]' /tmp/vodafone-xml/channels.json | \
 			  print icon
 			  print "  </channel>"
 			}
-  '
+  ' >> $out
 
 # get epg data for each channel
 for i in $( jq '.data[].id' /tmp/vodafone-xml/channels.json | sed 's/ /%20/g' ); do
@@ -94,7 +108,7 @@ for i in $( jq '.data[].id' /tmp/vodafone-xml/channels.json | sed 's/ /%20/g' );
 					}
 	'
   done
-done
-echo "</tv>"
+done >> $out
+echo "</tv>" >> $out
 
 rm -rf /tmp/vodafone-xml
