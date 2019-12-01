@@ -29,7 +29,7 @@ rm -rf /tmp/vodafone-xml || true
 mkdir -p /tmp/vodafone-xml
 
 # get channel list and build xmltv channel list
-curl -s 'https://web.ott-red.vodafone.pt/ott3_webapp/v1/channels' >/tmp/vodafone-xml/channels.json
+curl -fs 'https://web.ott-red.vodafone.pt/ott3_webapp/v1/channels' >/tmp/vodafone-xml/channels.json
 
 cat<<EOF > $out
 <?xml version="1.0" encoding="UTF-8"?>
@@ -65,7 +65,7 @@ for i in $( jq '.data[].id' /tmp/vodafone-xml/channels.json | sed 's/ /%20/g' );
 	# ignore "cac & pesca" as epg fails server side
 	if [ $shortid = "cacpesca" ] ; then continue ; fi
 
-	curl -s "https://web.ott-red.vodafone.pt/ott3_webapp/v1.5/programs/grids/${i//\"}/$day" > /tmp/vodafone-xml/epgdata-${day}.json
+	curl -fs "https://web.ott-red.vodafone.pt/ott3_webapp/v1.5/programs/grids/${i//\"}/$day" > /tmp/vodafone-xml/epgdata-${day}.json
 	cat /tmp/vodafone-xml/epgdata-${day}.json | \
 		sed 's/&/&amp;/g' | \
 		jq '.data[]' | \
