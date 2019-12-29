@@ -60,10 +60,10 @@ jq '.data[]' /tmp/vodafone-xml/channels.json | \
 # get epg data for each channel
 for i in $( jq '.data[].id' /tmp/vodafone-xml/channels.json | sed 's/ /%20/g' ); do
   for day in $( seq 0 $((days-1)) ); do
-	shortid=$( echo $i | sed 's/%20//g' | tr [A-Z] [a-z] |  sed -r 's/&amp;//g; s/[^a-z0-9]//g' )
+	shortid=$( echo "$i" | sed 's/%20//g' | tr "[A-Z]" "[a-z]" |  sed -r 's/&amp;//g; s/[^a-z0-9]//g' )
 
 	# ignore "cac & pesca" as epg fails server side
-	if [ $shortid = "cacpesca" ] ; then continue ; fi
+	if [ "$shortid" = "cacpesca" ] ; then continue ; fi
 
 	curl -fs "https://web.ott-red.vodafone.pt/ott3_webapp/v1.5/programs/grids/${i//\"}/$day" > /tmp/vodafone-xml/epgdata-${day}.json
 	cat /tmp/vodafone-xml/epgdata-${day}.json | \
@@ -73,9 +73,9 @@ for i in $( jq '.data[].id' /tmp/vodafone-xml/channels.json | sed 's/ /%20/g' );
 		BEGIN			{ FS="\"" }
 #					{ print "++" $0 "++" $4 "++"}
 
-		$2 == "guid"		{ title=""; subtitle=""; desc=""; nseason=""; season=""; nepisode=""; episode=""; start=""; end=""}
-		$2 == "fullTitle"	{ title="    <title lang=\"pt\">"$4"</title>" }
-		$2 == "episodeTitle"	{ subtitle="    <sub-title lang=\"pt\">"$4"</sub-title>" }
+		$2 == "guid"		{ title=""; subtitle=""; desc=""; nseason=""; season=""; nepisode=""; episode=""; start=""; end=""; ep="" }
+		$2 == "fullTitle"	{ title="    <title lang=\"pt\">"gensub(/[: ]*(T[0-9 ]*)?(Ep[0-9.]+)?$/,"","g",$4)"</title>" }
+		$2 == "episodeTitle"    { subtitle="    <sub-title lang=\"pt\">"ep": "$4"</sub-title>";  gsub(/.*>: <.*/,"",subtitle); gsub(/>: /,">",subtitle);  gsub(/: </,"<",subtitle)}
 		$2 == "description"	{ desc="    <desc lang=\"pt\">"$4"</desc>" }
 		$2 == "image"		{ logo="    <icon src=\""$4"\"/>" }
 		$2 == "duration"	{ duration="    <length units=\"seconds\">"gensub(/: ([0-9]*),/,"\\1","g",$3)"</length>" }
@@ -90,7 +90,11 @@ for i in $( jq '.data[].id' /tmp/vodafone-xml/channels.json | sed 's/ /%20/g' );
 					  if (nepisode > 0) { xmltv_ns="    <episode-num system=\"xmltv_ns\">"nseason-1"."gensub(/: ([0-9]*),/,"\\1","g",$3)-1".</episode-num>" }
 					}
 		$2 == "episodeLabel"	{
-					  if (nepisode > 0) { onscreen="    <episode-num system=\"onscreen\">"season" "$4"</episode-num>" }
+					  if (nepisode > 0) {
+						if (length(season) > 0) { ep=season" "$4 }
+						else { 	                  ep=$4 }
+						onscreen="    <episode-num system=\"onscreen\">"ep"</episode-num>"
+					  }
 					}
 		$2 == "startTime"	{ start=gensub(/[:TZ-]/,"","g",$4) }
 		$2 == "endTime"		{ end=gensub(/[:TZ-]/,"","g",$4) }
