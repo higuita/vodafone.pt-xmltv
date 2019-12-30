@@ -66,8 +66,9 @@ for i in $( jq '.data[].id' /tmp/vodafone-xml/channels.json | sed 's/ /%20/g' );
 	if [ "$shortid" = "cacpesca" ] ; then continue ; fi
 
 	curl -fs "https://web.ott-red.vodafone.pt/ott3_webapp/v1.5/programs/grids/${i//\"}/$day" > /tmp/vodafone-xml/epgdata-${day}.json
+	# replace \" with utf-8 2ba character ʺ
 	cat /tmp/vodafone-xml/epgdata-${day}.json | \
-		sed 's/&/&amp;/g' | \
+		sed 's/&/&amp;/g ; s,\\",ʺ,g' | \
 		jq '.data[]' | \
 		awk -v shortid="$shortid" '
 		BEGIN			{ FS="\"" }
