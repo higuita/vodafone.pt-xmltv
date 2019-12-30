@@ -1,5 +1,6 @@
 #!/bin/bash -e
 # v1.0 higuita@gmx.net 2019/08/24
+# v1.1 higuita@gmx.net 2019/12/30 - remove Season and episode from title, several minor fixes
 # License GPL V3
 # as the Vodafone tvguide site used in the previous script was disabled,
 # lets try to use the app webservice as a quick workaround.
