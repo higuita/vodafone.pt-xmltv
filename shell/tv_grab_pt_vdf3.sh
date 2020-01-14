@@ -51,7 +51,7 @@ jq '.data[]' /tmp/vodafone-xml/channels.json | \
 	$2 == "name"	{ print "    <display-name lang=\"pt\">"$4"</display-name>"
 			  if (id!=$4) { print display_id }
 			}
-	$2 == "logo"	{ icon="    <icon src=\""$4"\"/>" }
+	$2 == "logo"	{ icon="    <icon src=\""$4"\" />" }
 	END		{
 			  print icon
 			  print "  </channel>"
@@ -75,11 +75,11 @@ for i in $( jq '.data[].id' /tmp/vodafone-xml/channels.json | sed 's/ /%20/g' );
 		BEGIN			{ FS="\"" }
 #					{ print "++" $0 "++" $4 "++"}
 
-		$2 == "guid"		{ title=""; subtitle=""; desc=""; nseason=""; season=""; nepisode=""; episode=""; start=""; end=""; ep="" }
-		$2 == "fullTitle"	{ title="    <title lang=\"pt\">"gensub(/[: ]*(T[0-9 ]*)?(Ep[0-9.]+)?$/,"","g",$4)"</title>" }
+		$2 == "guid"		{ title=""; subtitle=""; desc=""; nseason=""; season=""; nepisode=""; episode=""; start=""; end=""; ep="" ; nepisode="" ; xmltv_ns="" ; onscreen="" }
+		$2 == "title"		{ title="    <title lang=\"pt\">"$4"</title>" }
 		$2 == "episodeTitle"    { subtitle="    <sub-title lang=\"pt\">"ep": "$4"</sub-title>";  gsub(/.*>: <.*/,"",subtitle); gsub(/>: /,">",subtitle);  gsub(/: </,"<",subtitle)}
 		$2 == "description"	{ desc="    <desc lang=\"pt\">"$4"</desc>" }
-		$2 == "image"		{ logo="    <icon src=\""$4"\"/>" }
+		$2 == "image"		{ logo="    <icon src=\""$4"\" />" }
 		$2 == "duration"	{ duration="    <length units=\"seconds\">"gensub(/: ([0-9]*),/,"\\1","g",$3)"</length>" }
 		$2 == "category"	{ category="    <category lang=\"en\">"$4"</category>" }
 		$2 == "season"		{
