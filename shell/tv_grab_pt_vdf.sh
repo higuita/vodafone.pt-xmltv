@@ -47,7 +47,7 @@ while getopts "ho:d:D" opt; do
   case "$opt" in
       h) echo " -h -> this help"
 	 echo " -o {filename} -> write output to file, default is the terminal stdout"
-         echo " -d {number} -> number of days to grab, default 2"
+         echo " -d {number} -> number of days to grab, default 2. Negative numbers are also OK, to get past data"
          echo " -D -> Debug"
          exit 0 ;;
       o) out="${OPTARG}" ;;
@@ -86,7 +86,7 @@ for getday in $(seq 0 ${extradays}); do
 		files=".${channel}"
 	fi
 	shortid
-	fetch $epgid $(date -d +${getday}day "+%Y %m %d")
+	fetch $epgid $(date -d ${getday}day "+%Y %m %d")
 
         cat $temp_dir/epgdata.json | \
                 jq '.[].result.objects[]' | \
