@@ -2,11 +2,17 @@
 # v2.0 higuita@gmx.net 2024/11/10
 # License GPL V3
 # Old API was removed, lets use the new tv.vodafone.pt API
-# sadly, the channel list, id and names require auth and post signature, so for now use a static list
+# sadly, the channel list, id and names require auth and post data signature, so for now use a static list
 # See the end of file for how to build that
 
-# how many days to grab by default
+# how many days to grab (default 2, today and tomorrow)
 days=2
+
+# Add a delay to not overload the servers and try to avoid rate-limits
+delay=0.2
+
+# how many attempts we should try to make, exponential backoff
+retry=4
 
 #set -x
 fetch() {
@@ -14,11 +20,15 @@ fetch() {
 	year=$2
 	month=$3
 	day=$4
-	curl -s https://cdn.pt.vtv.vodafone.com/epg/${channel}/${year}/${month}/${day}/00-06 >$temp_dir/vodafone.1
-	curl -s https://cdn.pt.vtv.vodafone.com/epg/${channel}/${year}/${month}/${day}/06-12 >$temp_dir/vodafone.2
-	curl -s https://cdn.pt.vtv.vodafone.com/epg/${channel}/${year}/${month}/${day}/12-18 >$temp_dir/vodafone.3
-	curl -s https://cdn.pt.vtv.vodafone.com/epg/${channel}/${year}/${month}/${day}/18-00 >$temp_dir/vodafone.4
-        jq -s . $temp_dir/vodafone.1 $temp_dir/vodafone.2 $temp_dir/vodafone.3 $temp_dir/vodafone.4 > $temp_dir/epgdata.json
+	sleep $delay
+	curl -s --retry $retry https://cdn.pt.vtv.vodafone.com/epg/${channel}/${year}/${month}/${day}/00-06 >$temp_dir/vodafone.1${files}
+	sleep $delay
+	curl -s --retry $retry https://cdn.pt.vtv.vodafone.com/epg/${channel}/${year}/${month}/${day}/06-12 >$temp_dir/vodafone.2${files}
+	sleep $delay
+	curl -s --retry $retry https://cdn.pt.vtv.vodafone.com/epg/${channel}/${year}/${month}/${day}/12-18 >$temp_dir/vodafone.3${files}
+	sleep $delay
+	curl -s --retry $retry https://cdn.pt.vtv.vodafone.com/epg/${channel}/${year}/${month}/${day}/18-00 >$temp_dir/vodafone.4${files}
+        jq -s . $temp_dir/vodafone.1${files} $temp_dir/vodafone.2${files} $temp_dir/vodafone.3${files} $temp_dir/vodafone.4${files} > $temp_dir/epgdata.json
 }
 
 # xmltv requests ascii names for channels, to increase compatibility
@@ -31,6 +41,7 @@ shortid(){
 out="/proc/self/fd/1"
 DEBUG=0
 workdir=$(dirname -- "$0")
+files=""
 
 while getopts "ho:d:D" opt; do
   case "$opt" in
@@ -66,11 +77,16 @@ grep -v "^#" $workdir/channel.list | while IFS='	' read -r epgid name logo ; do
         echo "  </channel>"
 done >> $out
 
-# export programs
-grep -v "^#" $workdir/channel.list | while IFS='	' read -r epgid name logo ; do
-	if [ $DEBUG = 1 ]; then echo "export $epgid $name" >&2 ; fi
+extradays=$((days-1))
+for getday in $(seq 0 ${extradays}); do
+  # export programs
+  grep -v "^#" $workdir/channel.list | while IFS='	' read -r epgid name logo ; do
+	if [ $DEBUG = 1 ]; then
+		echo "export $epgid $name" >&2
+		files=".${channel}"
+	fi
 	shortid
-	fetch $epgid $(date "+%Y %m %d")
+	fetch $epgid $(date -d +${getday}day "+%Y %m %d")
 
         cat $temp_dir/epgdata.json | \
                 jq '.[].result.objects[]' | \
@@ -97,11 +113,11 @@ grep -v "^#" $workdir/channel.list | while IFS='	' read -r epgid name logo ; do
                 $2 == "value" && sn==1   { season=$4; sn=0 }
 
                 $2 == "display duration" { d=1 }
-                $2 == "value" && d==1    { split($4,s,"[PTHMS]"); duration="    <length units=\"seconds\">"s[3]*3600+s[4]*60+s[5]"</length>" ; d=0 }
+                $2 == "value" && d==1    { split($4,s,"[PTHMS]"); duration="    <length units=\"minutes\">"s[3]*60+s[4]"</length>" ; d=0 }
 		# s[1] and s[2] are the empty splits from PT string
 
                 $2 == "parental Rating"  { p=1 }
-                $2 == "value" && p==1    { rating="    <rating><value>"$4"</value></rating>" ; p=0}
+                $2 == "value" && p==1    { if ($4 == 0){rating="    <rating system=\"Portuguese Movie Rating\"><value>All Ages</value></rating>"} else {rating="    <rating system=\"Portuguese Movie Rating\"><value>M/"$4"</value></rating>" }; p=0}
 
                 $2 == "year"             { y=1 }
                 $2 == "value" && y==1    { date="    <date>"$4"</date>" ; y=0}
@@ -140,8 +156,8 @@ grep -v "^#" $workdir/channel.list | while IFS='	' read -r epgid name logo ; do
                                            print duration
                                            print logo
                                            if (ep >=0) {
-					 	print "    <episode-num system=\"xmltv_ns\">"season-1"."ep-1".</episode-num>"
 					 	print "    <episode-num system=\"onscreen\">S"season"E"ep"</episode-num>"
+						print "    <episode-num system=\"xmltv_ns\">"season-1"."ep-1".</episode-num>"
 					   }
                                            print rating
                                            print date
@@ -154,7 +170,8 @@ grep -v "^#" $workdir/channel.list | while IFS='	' read -r epgid name logo ; do
                                            print "  </programme>"
                                          }
         '
-done >> $out
+  done >> $out
+done
 echo "</tv>" >> $out
 if [ $DEBUG = 0 ]; then rm -rf $temp_dir ; fi
 
