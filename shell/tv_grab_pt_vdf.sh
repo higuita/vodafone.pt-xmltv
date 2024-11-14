@@ -1,5 +1,6 @@
 #!/bin/bash -e
 # v2.0 higuita@gmx.net 2024/11/10
+# v2.0.1 2024/11/14 fix <> characters
 # License GPL V3
 # Old API was removed, lets use the new tv.vodafone.pt API
 # sadly, the channel list, id and names require auth and post data signature, so for now use a static list
@@ -90,7 +91,7 @@ for getday in $(seq 0 ${extradays}); do
 
         cat $temp_dir/epgdata.json | \
                 jq '.[].result.objects[]' | \
-		sed 's/&/&amp;/g' | \
+		sed 's/&/&amp;/g; s/</&lt;/g; s/>/&lt;/g' | \
                 awk -v shortid="$shortid" '
                 BEGIN                    { FS="\"" }
                                          #{ print "++" $0 "+" $1 "+" $2 "+"$3 "+" $4 "++"}
