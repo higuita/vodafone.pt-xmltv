@@ -91,7 +91,7 @@ for getday in $(seq 0 ${extradays}); do
 
         cat $temp_dir/epgdata.json | \
                 jq '.[].result.objects[]' | \
-		sed 's/&/&amp;/g; s/</&lt;/g; s/>/&lt;/g' | \
+		sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&lt;/g' | \
                 awk -v shortid="$shortid" '
                 BEGIN                    { FS="\"" }
                                          #{ print "++" $0 "+" $1 "+" $2 "+"$3 "+" $4 "++"}
@@ -153,21 +153,20 @@ for getday in $(seq 0 ${extradays}); do
                                            print title
                                            print subtitle
                                            print desc
+                                           print "    <credits>"
+                                           print director
+                                           print actor
+                                           print "    </credits>"
+                                           print date
                                            print category
                                            print duration
                                            print logo
+                                           print country
                                            if (ep >=0) {
 					 	print "    <episode-num system=\"onscreen\">S"season"E"ep"</episode-num>"
 						print "    <episode-num system=\"xmltv_ns\">"season-1"."ep-1".</episode-num>"
 					   }
                                            print rating
-                                           print date
-                                           print country
-                                           print "    <credits>"
-                                           print director
-                                           print actor
-                                           print "    </credits>"
-
                                            print "  </programme>"
                                          }
         '
