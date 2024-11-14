@@ -1,6 +1,6 @@
 #!/bin/bash -e
 # v2.0 higuita@gmx.net 2024/11/10
-# v2.0.1 2024/11/14 fix <> characters
+# v2.0.2 2024/11/14 fix <> characters, fix & escape, fix xmltv elements order
 # License GPL V3
 # Old API was removed, lets use the new tv.vodafone.pt API
 # sadly, the channel list, id and names require auth and post data signature, so for now use a static list
