@@ -1,6 +1,7 @@
 #!/bin/bash -e
 # v2.0 higuita@gmx.net 2024/11/10
 # v2.0.2 2024/11/14 fix <> characters, fix & escape, fix xmltv elements order
+# v2.0.3 2024/11/15 detect missing epg data and workaround it
 # License GPL V3
 # Old API was removed, lets use the new tv.vodafone.pt API
 # sadly, the channel list, id and names require auth and post data signature, so for now use a static list
@@ -21,16 +22,20 @@ fetch() {
 	year=$2
 	month=$3
 	day=$4
-	sleep $delay
-	curl -s --retry $retry https://cdn.pt.vtv.vodafone.com/epg/${channel}/${year}/${month}/${day}/00-06 >$temp_dir/vodafone.1${files}
-	sleep $delay
-	curl -s --retry $retry https://cdn.pt.vtv.vodafone.com/epg/${channel}/${year}/${month}/${day}/06-12 >$temp_dir/vodafone.2${files}
-	sleep $delay
-	curl -s --retry $retry https://cdn.pt.vtv.vodafone.com/epg/${channel}/${year}/${month}/${day}/12-18 >$temp_dir/vodafone.3${files}
-	sleep $delay
-	curl -s --retry $retry https://cdn.pt.vtv.vodafone.com/epg/${channel}/${year}/${month}/${day}/18-00 >$temp_dir/vodafone.4${files}
-        jq -s . $temp_dir/vodafone.1${files} $temp_dir/vodafone.2${files} $temp_dir/vodafone.3${files} $temp_dir/vodafone.4${files} > $temp_dir/epgdata.json
+	get_epg 00-06
+	get_epg 06-12
+	get_epg 12-18
+	get_epg 18-00
+	# merge and cleanup empty epg results
+	jq -s '.[].result.objects' $temp_dir/vodafone.00-06${files} $temp_dir/vodafone.06-12${files} $temp_dir/vodafone.12-18${files} $temp_dir/vodafone.18-00${files} > $temp_dir/epgdata.json
 }
+
+get_epg(){
+	sleep $delay
+	curl -s --retry $retry https://cdn.pt.vtv.vodafone.com/epg/${channel}/${year}/${month}/${day}/$1 >$temp_dir/vodafone.${1}${files}
+	jq '.result.objects' $temp_dir/vodafone.${1}${files} | grep -q 'createDate' || echo " WARN: $shortid have no epg data for $year/$month/$day $1" >/dev/stderr
+}
+
 
 # xmltv requests ascii names for channels, to increase compatibility
 shortid(){
@@ -90,7 +95,6 @@ for getday in $(seq 0 ${extradays}); do
 	fetch $epgid $(date -d ${getday}day "+%Y %m %d")
 
         cat $temp_dir/epgdata.json | \
-                jq '.[].result.objects[]' | \
 		sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&lt;/g' | \
                 awk -v shortid="$shortid" '
                 BEGIN                    { FS="\"" }
