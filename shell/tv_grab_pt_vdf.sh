@@ -1,7 +1,7 @@
 #!/bin/bash -e
 # v2.0 higuita@gmx.net 2024/11/10
 # v2.0.2 2024/11/14 fix <> characters, fix & escape, fix xmltv elements order
-# v2.0.3 2024/11/15 detect missing epg data and workaround it
+# v2.0.3 2024/11/15 detect missing epg data and workaround it and some cleanup
 # License GPL V3
 # Old API was removed, lets use the new tv.vodafone.pt API
 # sadly, the channel list, id and names require auth and post data signature, so for now use a static list
@@ -52,7 +52,7 @@ files=""
 while getopts "ho:d:D" opt; do
   case "$opt" in
       h) echo " -h -> this help"
-	 echo " -o {filename} -> write output to file, default is the terminal stdout"
+         echo " -o {filename} -> write output to file, default is the terminal stdout"
          echo " -d {number} -> number of days to grab, default 2. Negative numbers are also OK, to get past data"
          echo " -D -> Debug"
          exit 0 ;;
@@ -74,13 +74,13 @@ cat<<EOF > $out
 EOF
 
 # export channels first
-grep -v "^#" $workdir/channel.list | while IFS='	' read -r epgid name logo ; do
+grep -v "^#" $workdir/channel.list | tr -d '"' | while IFS='	' read -r epgid name logo ; do
 	if [ $DEBUG = 1 ]; then echo "export $epgid $name" >&2 ; fi
 	shortid
 	echo "  <channel id=\"${shortid}\">"
-        echo "    <display-name lang=\"pt\">$name</display-name>"
-	echo "    <icon src=$logo />"
-        echo "  </channel>"
+	echo "    <display-name lang=\"pt\">$name</display-name>"
+	echo "    <icon src=\"$logo\" />"
+	echo "  </channel>"
 done >> $out
 
 extradays=$((days-1))
@@ -94,10 +94,10 @@ for getday in $(seq 0 ${extradays}); do
 	shortid
 	fetch $epgid $(date -d ${getday}day "+%Y %m %d")
 
-        cat $temp_dir/epgdata.json | \
+	cat $temp_dir/epgdata.json | \
 		sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&lt;/g' | \
-                awk -v shortid="$shortid" '
-                BEGIN                    { FS="\"" }
+		awk -v shortid="$shortid" '
+		BEGIN                    { FS="\"" }
                                          #{ print "++" $0 "+" $1 "+" $2 "+"$3 "+" $4 "++"}
 
 		# start a program
@@ -173,7 +173,7 @@ for getday in $(seq 0 ${extradays}); do
                                            print rating
                                            print "  </programme>"
                                          }
-        '
+	'
   done >> $out
 done
 echo "</tv>" >> $out
