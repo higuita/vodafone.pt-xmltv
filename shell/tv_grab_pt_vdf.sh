@@ -2,6 +2,7 @@
 # v2.0 higuita@gmx.net 2024/11/10
 # v2.0.2 2024/11/14 fix <> characters, fix & escape, fix xmltv elements order
 # v2.0.3 2024/11/15 detect missing epg data and workaround it and some cleanup
+# v2.0.4 2024/11/22 silent broken pipe error on early grep-q test
 # License GPL V3
 # Old API was removed, lets use the new tv.vodafone.pt API
 # sadly, the channel list, id and names require auth and post data signature, so for now use a static list
@@ -33,7 +34,7 @@ fetch() {
 get_epg(){
 	sleep $delay
 	curl -s --retry $retry https://cdn.pt.vtv.vodafone.com/epg/${channel}/${year}/${month}/${day}/$1 >$temp_dir/vodafone.${1}${files}
-	jq '.result.objects' $temp_dir/vodafone.${1}${files} | grep -q 'createDate' || echo " WARN: $shortid have no epg data for $year/$month/$day $1" >/dev/stderr
+	jq '.result.objects' $temp_dir/vodafone.${1}${files} 2>/dev/null | grep -q 'createDate' || echo " WARN: $shortid have no epg data for $year/$month/$day $1" >&2
 }
 
 
