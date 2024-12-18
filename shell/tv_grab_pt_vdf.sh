@@ -1,8 +1,9 @@
 #!/bin/bash -e
 # v2.0 higuita@gmx.net 2024/11/10
-# v2.0.2 2024/11/14 fix <> characters, fix & escape, fix xmltv elements order
-# v2.0.3 2024/11/15 detect missing epg data and workaround it and some cleanup
-# v2.0.4 2024/11/22 silent broken pipe error on early grep-q test
+# v2.0.2 2024/11/14 Fix <> characters, fix & escape, fix xmltv elements order
+# v2.0.3 2024/11/15 Detect missing epg data and workaround it and some cleanup
+# v2.0.4 2024/11/22 Silent broken pipe error on early grep-q test
+# v2.0.6 2024/11/30 Add tv show images size filter
 # License GPL V3
 # Old API was removed, lets use the new tv.vodafone.pt API
 # sadly, the channel list, id and names require auth and post data signature, so for now use a static list
@@ -16,6 +17,11 @@ delay=0.2
 
 # how many attempts we should try to make, exponential backoff
 retry=4
+
+# size of the tv show image
+width=640
+height=480
+quality=95
 
 #set -x
 fetch() {
@@ -106,7 +112,7 @@ for getday in $(seq 0 ${extradays}); do
 					   en=0; epn=0; sn=0 ; d=0; g=0; p=0; ; c=0; y=0; dir=0; a=0 ; next}
                 $2 == "name"             { title="    <title lang=\"pt\">"$4"</title>" }
                 $2 == "description"      { desc="    <desc lang=\"pt\">"$4"</desc>" }
-                $2 == "url"              { logo="    <icon src=\""$4"\" />" }
+                $2 == "url"              { logo="    <icon src=\""$4"/width/'$width'/height/'$height'/quality/'$quality'\" />" }
 
 		# subnode value workarounds
                 $2 == "episode name"     { en=1  }
