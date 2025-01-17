@@ -4,6 +4,7 @@
 # v2.0.3 2024/11/15 Detect missing epg data and workaround it and some cleanup
 # v2.0.4 2024/11/22 Silent broken pipe error on early grep-q test
 # v2.0.6 2024/11/30 Add tv show images size filter
+# v2.0.7 2025/01/17 Fetch previous day end of day data, add image support and choose best icon for show
 # License GPL V3
 # Old API was removed, lets use the new tv.vodafone.pt API
 # sadly, the channel list, id and names require auth and post data signature, so for now use a static list
