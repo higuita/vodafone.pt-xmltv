@@ -19,35 +19,36 @@ delay=0.2
 retry=4
 
 # size of the tv show image
+# 16:9, use https://aspectratiocalculator.com/16-9.html
 width=640
-height=480
+height=360
 quality=95
 
 #set -x
 fetch() {
-	channel=$1
-	year=$2
-	month=$3
-	day=$4
-	get_epg 00-06
-	get_epg 06-12
-	get_epg 12-18
-	get_epg 18-00
-	# merge and cleanup empty epg results
-	jq -s '.[].result.objects' $temp_dir/vodafone.00-06${files} $temp_dir/vodafone.06-12${files} $temp_dir/vodafone.12-18${files} $temp_dir/vodafone.18-00${files} > $temp_dir/epgdata.json
+        channel=$1
+        year=$2
+        month=$3
+        day=$4
+        get_epg 00-06
+        get_epg 06-12
+        get_epg 12-18
+        get_epg 18-00
+        # merge and cleanup empty epg results
+        jq -s '.[].result.objects' $temp_dir/vodafone.18-00${files}.previous $temp_dir/vodafone.00-06${files} $temp_dir/vodafone.06-12${files} $temp_dir/vodafone.12-18${files} $temp_dir/vodafone.18-00${files} > $temp_dir/epgdata.json
 }
 
 get_epg(){
-	sleep $delay
-	curl -s --retry $retry https://cdn.pt.vtv.vodafone.com/epg/${channel}/${year}/${month}/${day}/$1 >$temp_dir/vodafone.${1}${files}
-	jq '.result.objects' $temp_dir/vodafone.${1}${files} 2>/dev/null | grep -q 'createDate' || echo " WARN: $shortid have no epg data for $year/$month/$day $1" >&2
+        sleep $delay
+        curl -s --retry $retry https://cdn.pt.vtv.vodafone.com/epg/${channel}/${year}/${month}/${day}/$1 >$temp_dir/vodafone.${1}${files}${previous}
+        jq '.result.objects' $temp_dir/vodafone.${1}${files}${previous} 2>/dev/null | grep -q 'createDate' || echo " WARN: $shortid have no epg data for $year/$month/$day $1" >&2
 }
 
 
 # xmltv requests ascii names for channels, to increase compatibility
 shortid(){
-	# lower case, remove " and spaces, convert high characters to ascii
-	shortid=$(echo ${name,,} | tr -d '" ' | sed 's/!//g; s/+/plus/g'| iconv -f UTF-8 -t ASCII//TRANSLIT).tv.vodafone.pt
+        # lower case, remove " and spaces, convert high characters to ascii
+        shortid=$(echo ${name,,} | tr -d '" ' | sed 's/!//g; s/+/plus/g'| iconv -f UTF-8 -t ASCII//TRANSLIT).tv.vodafone.pt
 }
 
 # stdout
@@ -82,83 +83,103 @@ EOF
 
 # export channels first
 grep -v "^#" $workdir/channel.list | tr -d '"' | while IFS='	' read -r epgid name logo ; do
-	if [ $DEBUG = 1 ]; then echo "export $epgid $name" >&2 ; fi
-	shortid
-	echo "  <channel id=\"${shortid}\">"
-	echo "    <display-name lang=\"pt\">$name</display-name>"
-	echo "    <icon src=\"$logo\" />"
-	echo "  </channel>"
+        if [ $DEBUG = 1 ]; then echo "export $epgid $name" >&2 ; fi
+        shortid
+        echo "  <channel id=\"${shortid}\">"
+        echo "    <display-name lang=\"pt\">$name</display-name>"
+        echo "    <display-name lang=\"pt\">$shortid</display-name>"
+        echo "    <display-name lang=\"pt\">$epgid</display-name>"
+        echo "    <icon src=\"$logo\" />"
+        echo "  </channel>"
 done >> $out
 
 extradays=$((days-1))
 for getday in $(seq 0 ${extradays}); do
   # export programs
   grep -v "^#" $workdir/channel.list | while IFS='	' read -r epgid name logo ; do
-	if [ $DEBUG = 1 ]; then
-		echo "export $epgid $name" >&2
-		files=".${channel}"
-	fi
-	shortid
-	fetch $epgid $(date -d ${getday}day "+%Y %m %d")
+        if [ $DEBUG = 1 ]; then
+                echo "export $epgid $name" >&2
+                files=".${channel}"
+        fi
+        shortid
 
-	cat $temp_dir/epgdata.json | \
-		sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&lt;/g' | \
-		awk -v shortid="$shortid" '
-		BEGIN                    { FS="\"" }
+        # get epg from previous days to fetch programs that started the previous day and end in current day
+        channel=$epgid
+        year=$(date -d $(( getday -1 ))day "+%Y")
+        month=$(date -d $(( getday -1 ))day "+%m")
+        day=$(date -d $(( getday -1 ))day "+%d")
+        previous=".previous"
+        get_epg 18-00
+        previous=""
+
+        # fetch the epg for $getday
+        fetch $epgid $(date -d ${getday}day "+%Y %m %d")
+
+        cat $temp_dir/epgdata.json | \
+                sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&lt;/g ; s/\\"/\&quot;/g' | \
+                awk -v shortid="$shortid" '
+                BEGIN                    { FS="\"" }
                                          #{ print "++" $0 "+" $1 "+" $2 "+"$3 "+" $4 "++"}
 
-		# start a program
-                $2 == "createDate"       { title=""; subtitle=""; desc=""; season=""; category=""; duration=""; logo=""; start=""; end=""; ep="" ; season="" ; director=""; actor="";
-					   en=0; epn=0; sn=0 ; d=0; g=0; p=0; ; c=0; y=0; dir=0; a=0 ; next}
-                $2 == "name"             { title="    <title lang=\"pt\">"$4"</title>" }
-                $2 == "description"      { desc="    <desc lang=\"pt\">"$4"</desc>" }
-                $2 == "url"              { logo="    <icon src=\""$4"/width/'$width'/height/'$height'/quality/'$quality'\" />" }
+                # start a program
+                $2 == "createDate"       { title=""; subtitle=""; desc=""; season=""; category=""; duration=""; logo=""; start=""; end=""; ep="" ; season="" ; director=""; actor=""; image="";
+                                           en=0; epn=0; sn=0 ; d=0; g=0; p=0; ; c=0; y=0; dir=0; a=0 ; ca=0; cc=0 ; bg=0 ; next}
+                $2 == "name"             { title="    <title lang=\"pt\">"$4"</title>" ; next }
+                $2 == "description"      { desc="    <desc lang=\"pt\">"$4"</desc>" ; next }
+                $2 == "imageTypeName" && $4 == "cc"  { cc=1 }
+                $2 == "imageTypeName" && $4 == "ca"  { ca=1 }
+                $2 == "imageTypeName" && $4 == "bg"  { bg=1 }
+                # use poster as icon if exists, if not, use still image
+                $2 == "url" && ca == 1   {              logo="    <icon src=\""$4"/width/'$height'/height/'$width'/quality/'$quality'\" />" }
+                $2 == "url" && cc == 1 && logo == ""  { logo="    <icon src=\""$4"/width/'$width'/height/'$height'/quality/'$quality'\" />" }
+                $2 == "url" && cc == 1   { image=image"\n    <image type=\"still\"    size=\"3\" orient=\"L\" system=\"vodafone\">"$4"/width/'$width'/height/'$height'/quality/'$quality'</image>" ; cc=0 ; next }
+                $2 == "url" && ca == 1   { image=image"\n    <image type=\"poster\"   size=\"3\" orient=\"P\" system=\"vodafone\">"$4"/width/'$height'/height/'$width'/quality/'$quality'</image>" ; ca=0 ; next }
+                $2 == "url" && bg == 1   { image=image"\n    <image type=\"backdrop\" size=\"3\" orient=\"L\" system=\"vodafone\">"$4"/width/'$width'/height/'$height'/quality/'$quality'</image>" ; bg=0 ; next }
 
-		# subnode value workarounds
-                $2 == "episode name"     { en=1  }
-                $2 == "value" && epn==1  { ep=$4; epn=0 }
+                # subnode value workarounds
+                $2 == "episode name"     { en=1 ; next }
+                $2 == "value" && epn==1  { ep=$4; epn=0 ; next }
 
-                $2 == "episode num"      { epn=1 }
-                $2 == "value" && en==1   { subtitle="    <sub-title lang=\"pt\">EP"ep": "$4"</sub-title>";  gsub(/.*>: <.*/,"",subtitle); gsub(/>: /,">",subtitle);  gsub(/: </,"<",subtitle); en=0}
+                $2 == "episode num"      { epn=1 ; next }
+                $2 == "value" && en==1   { subtitle="    <sub-title lang=\"pt\">EP"ep": "$4"</sub-title>";  gsub(/.*>: <.*/,"",subtitle); gsub(/>: /,">",subtitle);  gsub(/: </,"<",subtitle); en=0 ; next }
 
-                $2 == "season number"    { sn=1  }
-                $2 == "value" && sn==1   { season=$4; sn=0 }
+                $2 == "season number"    { sn=1 ; next }
+                $2 == "value" && sn==1   { season=$4; sn=0 ; next }
 
-                $2 == "display duration" { d=1 }
-                $2 == "value" && d==1    { split($4,s,"[PTHMS]"); duration="    <length units=\"minutes\">"s[3]*60+s[4]"</length>" ; d=0 }
-		# s[1] and s[2] are the empty splits from PT string
+                $2 == "display duration" { d=1 ; next }
+                $2 == "value" && d==1    { split($4,s,"[PTHMS]"); duration="    <length units=\"minutes\">"s[3]*60+s[4]"</length>" ; d=0 ; next }
+                # s[1] and s[2] are the empty splits from PT string
 
-                $2 == "parental Rating"  { p=1 }
-                $2 == "value" && p==1    { if ($4 == 0){rating="    <rating system=\"Portuguese Movie Rating\"><value>All Ages</value></rating>"} else {rating="    <rating system=\"Portuguese Movie Rating\"><value>M/"$4"</value></rating>" }; p=0}
+                $2 == "parental Rating"  { p=1 ; next }
+                $2 == "value" && p==1    { if ($4 == 0){rating="    <rating system=\"Portuguese Movie Rating\"><value>All Ages</value></rating>"} else {rating="    <rating system=\"Portuguese Movie Rating\"><value>M/"$4"</value></rating>" }; p=0 ; next }
 
-                $2 == "year"             { y=1 }
-                $2 == "value" && y==1    { date="    <date>"$4"</date>" ; y=0}
+                $2 == "year"             { y=1 ; next }
+                $2 == "value" && y==1    { date="    <date>"$4"</date>" ; y=0 ; next }
 
-                $2 == "country of production" { c=1 }
-                $2 == "value" && c==1    { country="    <country>"$4"</country>" ; c=0}
+                $2 == "country of production" { c=1 ; next }
+                $2 == "value" && c==1    { country="    <country>"$4"</country>" ; c=0 ; next }
 
-		# multiple values
-                $2 == "genre"            { g=1 }
-                $2 == "value" && g==1    { category=category"    <category lang=\"en\">"$4"</category>\n" }
+                # multiple values
+                $2 == "genre"            { g=1 ; next }
+                $2 == "value" && g==1    { category=category"    <category lang=\"pt\">"$4"</category>\n" ; next }
 
-                $2 == "director"         { dir=1 }
-                $2 == "value" && dir==1  { director=director"    <director>"$4"</director>\n" }
+                $2 == "director"         { dir=1 ; next }
+                $2 == "value" && dir==1  { director=director"    <director>"$4"</director>\n" ; next }
 
-                $2 == "actors"           { a=1 }
-                $2 == "value" && a==1    { actor=actor"    <actor>"$4"</actor>\n" }
+                $2 == "actors"           { a=1 ; next }
+                $2 == "value" && a==1    { actor=actor"    <actor>"$4"</actor>\n" ; next }
 
-		# close multiple values
-                $1 ~ /]/                 { g=0; dir=0 ; a=0}
+                # close multiple values
+                $1 ~ /]/                 { g=0; dir=0 ; a=0 ; next }
 
 
-
-		# epoc time seems to fail, not sure why, maybe less supported by apps
+                # epoc time seems to fail, not sure why, maybe less supported by apps
                 #$2 == "startDate"        { start=gensub(/: (.*),/,"\\1","g",$3) }
                 #$2 == "endDate"          { end=gensub(/: (.*),/,"\\1","g",$3) }
-                $2 == "startDate"        { start=strftime("%Y%m%d%H%M%S", gensub(/: (.*),/,"\\1","g",$3)) }
-                $2 == "endDate"          { end=strftime("%Y%m%d%H%M%S", gensub(/: (.*),/,"\\1","g",$3)) }
+                $2 == "startDate"        { start=strftime("%Y%m%d%H%M%S", gensub(/: (.*),/,"\\1","g",$3)) ; next }
+                $2 == "endDate"          { end=strftime("%Y%m%d%H%M%S", gensub(/: (.*),/,"\\1","g",$3))   ; next }
 
-		# end, print the program
+                # end, print the program
                 $2 == "enableTrickPlay"  {
                                            print "  <programme start=\""start"\" stop=\""end"\" channel=\""shortid"\">"
                                            print title
@@ -174,13 +195,14 @@ for getday in $(seq 0 ${extradays}); do
                                            print logo
                                            print country
                                            if (ep >=0) {
-					 	print "    <episode-num system=\"onscreen\">S"season"E"ep"</episode-num>"
-						print "    <episode-num system=\"xmltv_ns\">"season-1"."ep-1".</episode-num>"
-					   }
+                                                print "    <episode-num system=\"onscreen\">S"season"E"ep"</episode-num>"
+                                                print "    <episode-num system=\"xmltv_ns\">"season-1"."ep-1".</episode-num>"
+                                           }
                                            print rating
+                                           print image
                                            print "  </programme>"
                                          }
-	'
+        '
   done >> $out
 done
 echo "</tv>" >> $out
